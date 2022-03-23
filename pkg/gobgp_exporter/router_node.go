@@ -16,17 +16,18 @@ package exporter
 
 import (
 	"fmt"
-	gobgpapi "github.com/osrg/gobgp/api"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
-	"golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	gobgpapi "github.com/osrg/gobgp/v3/api"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/log"
+	"golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
 )
 
 type credential struct {
@@ -102,7 +103,7 @@ func validAddress(s string) error {
 		if addr := net.ParseIP(host); addr == nil {
 			return fmt.Errorf("invalid IP address in %s", s)
 		}
-	} else if ! strings.HasPrefix(s, "dns://") {
+	} else if !strings.HasPrefix(s, "dns://") {
 		return fmt.Errorf("invalid address format in %s", s)
 	} else {
 		// "dns://" prefix for hostname is allowed per go grpc documentation

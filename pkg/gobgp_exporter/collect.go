@@ -15,12 +15,13 @@
 package exporter
 
 import (
-	gobgpapi "github.com/osrg/gobgp/api"
+	"sync"
+	"time"
+
+	gobgpapi "github.com/osrg/gobgp/v3/api"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
 	"golang.org/x/net/context"
-	"sync"
-	"time"
 )
 
 // GatherMetrics collect data from a GoBGP router and stores them
@@ -50,7 +51,7 @@ func (n *RouterNode) GatherMetrics() {
 		}
 	} else {
 		n.routerID = server.Global.RouterId
-		n.localAS = server.Global.As
+		n.localAS = server.Global.Asn
 		log.Debugf("Router ID: '%s', ASN: %d", n.routerID, n.localAS)
 		n.connected = true
 	}

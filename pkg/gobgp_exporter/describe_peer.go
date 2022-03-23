@@ -161,4 +161,25 @@ var (
 		"PeerState.PeerType",
 		[]string{"name"}, nil,
 	)
+	bgpPeerAfiSafiStateReceived = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "peer", "received_prefix_count"),
+		"AfiState.Received",
+		[]string{"name", "address_family"}, nil,
+	)
+	bgpPeerAfiSafiStateAccepted = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "peer", "accepted_prefix_count"),
+		"AfiState.Accepted",
+		[]string{"name", "address_family"}, nil,
+	)
+	bgpPeerAfiSafiStateAdvertised = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "peer", "advertised_prefix_count"),
+		"Afistate.Advertised",
+		[]string{"name", "address_family"}, nil,
+	)
+
+	bgpPeerInfo = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "peer", "info"),
+		"Information about the bgp peer",
+		[]string{"name", "description", "peer_as", "import_policy", "export_policy"}, nil,
+	)
 )

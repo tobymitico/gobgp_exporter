@@ -15,11 +15,12 @@
 package exporter
 
 import (
-	gobgpapi "github.com/osrg/gobgp/api"
+	"strings"
+
+	gobgpapi "github.com/osrg/gobgp/v3/api"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/log"
 	"golang.org/x/net/context"
-	"strings"
 )
 
 var addressFamilies = map[string]*gobgpapi.Family{
