@@ -3,7 +3,7 @@ module github.com/greenpau/gobgp_exporter
 go 1.17
 
 require (
-	github.com/osrg/gobgp/v3 v3.5.0
+	github.com/osrg/gobgp/v3 v3.6.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.26.0
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
