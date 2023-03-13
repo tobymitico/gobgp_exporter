@@ -3,10 +3,10 @@ module github.com/greenpau/gobgp_exporter
 go 1.17
 
 require (
-	github.com/osrg/gobgp/v3 v3.11.0
+	github.com/osrg/gobgp/v3 v3.12.0
 	github.com/prometheus/client_golang v1.11.1
 	github.com/prometheus/common v0.26.0
-	golang.org/x/net v0.4.0
+	golang.org/x/net v0.7.0
 	google.golang.org/grpc v1.51.0
 )
 
@@ -20,8 +20,8 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
-	golang.org/x/sys v0.3.0 // indirect
-	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	google.golang.org/genproto v0.0.0-20221024183307-1bc688fe9f3e // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6 // indirect
