@@ -15,11 +15,12 @@
 package exporter
 
 import (
-	gobgpapi "github.com/osrg/gobgp/api"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
-	"golang.org/x/net/context"
 	"io"
+
+	"github.com/go-kit/log/level"
+	gobgpapi "github.com/osrg/gobgp/v3/api"
+	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/net/context"
 )
 
 // GetPeers collects information about BGP peers.
@@ -27,7 +28,10 @@ func (n *RouterNode) GetPeers() {
 
 	serverResponse, err := n.client.ListPeer(context.Background(), &gobgpapi.ListPeerRequest{})
 	if err != nil {
-		log.Errorf("GoBGP query for peers failed: %s", err)
+		level.Error(n.logger).Log(
+			"msg", "GoBGP query for peers failed",
+			"error", err.Error(),
+		)
 		n.IncrementErrorCounter()
 		return
 	}
@@ -38,7 +42,10 @@ func (n *RouterNode) GetPeers() {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			log.Errorf("GoBGP get neighbor response parsing failed: %s", err)
+			level.Error(n.logger).Log(
+				"msg", "GoBGP get neighbor response parsing failed",
+				"error", err.Error(),
+			)
 			n.IncrementErrorCounter()
 			return
 		}
@@ -46,7 +53,10 @@ func (n *RouterNode) GetPeers() {
 	}
 
 	if err != nil {
-		log.Errorf("GoBGP query for peers failed: %s", err)
+		level.Error(n.logger).Log(
+			"msg", "GoBGP query for peers failed",
+			"error", err.Error(),
+		)
 		n.IncrementErrorCounter()
 		return
 	}
@@ -81,7 +91,7 @@ func (n *RouterNode) GetPeers() {
 		n.metrics = append(n.metrics, prometheus.MustNewConstMetric(
 			routerPeerAsn,
 			prometheus.GaugeValue,
-			float64(peerState.GetPeerAs()),
+			float64(peerState.GetPeerAsn()),
 			peerRouterID,
 		))
 		// Peer Admin State: Up (0), Down (1), PFX_CT (2)
@@ -103,7 +113,7 @@ func (n *RouterNode) GetPeers() {
 		n.metrics = append(n.metrics, prometheus.MustNewConstMetric(
 			routerPeerLocalAsn,
 			prometheus.GaugeValue,
-			float64(peerState.GetLocalAs()),
+			float64(peerState.GetLocalAsn()),
 			peerRouterID,
 		))
 
@@ -278,7 +288,7 @@ func (n *RouterNode) GetPeers() {
 		n.metrics = append(n.metrics, prometheus.MustNewConstMetric(
 			bgpPeerRemovePrivateAsFlag,
 			prometheus.GaugeValue,
-			float64(peerState.GetRemovePrivateAs()),
+			float64(peerState.GetRemovePrivate()),
 			peerRouterID,
 		))
 		// Whether authentication password is being set (1) or not (0)
@@ -296,10 +306,9 @@ func (n *RouterNode) GetPeers() {
 		n.metrics = append(n.metrics, prometheus.MustNewConstMetric(
 			bgpPeerType,
 			prometheus.GaugeValue,
-			float64(peerState.GetPeerType()),
+			float64(peerState.GetType()),
 			peerRouterID,
 		))
 
 	}
-	return
 }

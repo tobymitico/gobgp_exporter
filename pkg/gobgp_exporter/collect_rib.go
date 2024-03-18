@@ -15,67 +15,68 @@
 package exporter
 
 import (
-	gobgpapi "github.com/osrg/gobgp/api"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
-	"golang.org/x/net/context"
 	"strings"
+
+	"github.com/go-kit/log/level"
+	gobgpapi "github.com/osrg/gobgp/v3/api"
+	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/net/context"
 )
 
 var addressFamilies = map[string]*gobgpapi.Family{
-	"ipv4": &gobgpapi.Family{
+	"ipv4": {
 		Afi:  gobgpapi.Family_AFI_IP,
 		Safi: gobgpapi.Family_SAFI_UNICAST,
 	},
-	"ipv6": &gobgpapi.Family{
+	"ipv6": {
 		Afi:  gobgpapi.Family_AFI_IP6,
 		Safi: gobgpapi.Family_SAFI_UNICAST,
 	},
-	"ipv4_vpn": &gobgpapi.Family{
+	"ipv4_vpn": {
 		Afi:  gobgpapi.Family_AFI_IP,
 		Safi: gobgpapi.Family_SAFI_MPLS_VPN,
 	},
-	"ipv6_vpn": &gobgpapi.Family{
+	"ipv6_vpn": {
 		Afi:  gobgpapi.Family_AFI_IP6,
 		Safi: gobgpapi.Family_SAFI_MPLS_VPN,
 	},
-	"ipv4_mpls": &gobgpapi.Family{
+	"ipv4_mpls": {
 		Afi:  gobgpapi.Family_AFI_IP,
 		Safi: gobgpapi.Family_SAFI_MPLS_LABEL,
 	},
-	"ipv6_mpls": &gobgpapi.Family{
+	"ipv6_mpls": {
 		Afi:  gobgpapi.Family_AFI_IP6,
 		Safi: gobgpapi.Family_SAFI_MPLS_LABEL,
 	},
-	"evpn": &gobgpapi.Family{
+	"evpn": {
 		Afi:  gobgpapi.Family_AFI_L2VPN,
 		Safi: gobgpapi.Family_SAFI_EVPN,
 	},
-	"ipv4_encap": &gobgpapi.Family{
+	"ipv4_encap": {
 		Afi:  gobgpapi.Family_AFI_IP,
 		Safi: gobgpapi.Family_SAFI_ENCAPSULATION,
 	},
-	"ipv6_encap": &gobgpapi.Family{
+	"ipv6_encap": {
 		Afi:  gobgpapi.Family_AFI_IP6,
 		Safi: gobgpapi.Family_SAFI_ENCAPSULATION,
 	},
-	"ipv4_flowspec": &gobgpapi.Family{
+	"ipv4_flowspec": {
 		Afi:  gobgpapi.Family_AFI_IP,
 		Safi: gobgpapi.Family_SAFI_FLOW_SPEC_UNICAST,
 	},
-	"ipv6_flowspec": &gobgpapi.Family{
+	"ipv6_flowspec": {
 		Afi:  gobgpapi.Family_AFI_IP6,
 		Safi: gobgpapi.Family_SAFI_FLOW_SPEC_UNICAST,
 	},
-	"ipv4_vpn_flowspec": &gobgpapi.Family{
+	"ipv4_vpn_flowspec": {
 		Afi:  gobgpapi.Family_AFI_IP,
 		Safi: gobgpapi.Family_SAFI_FLOW_SPEC_VPN,
 	},
-	"ipv6_vpn_flowspec": &gobgpapi.Family{
+	"ipv6_vpn_flowspec": {
 		Afi:  gobgpapi.Family_AFI_IP6,
 		Safi: gobgpapi.Family_SAFI_FLOW_SPEC_VPN,
 	},
-	"l2_vpn_flowspec": &gobgpapi.Family{
+	"l2_vpn_flowspec": {
 		Afi:  gobgpapi.Family_AFI_L2VPN,
 		Safi: gobgpapi.Family_SAFI_FLOW_SPEC_VPN,
 	},
@@ -100,7 +101,10 @@ func (n *RouterNode) GetRibCounters() {
 			//tableType = gobgpapi.TableType_VRF
 			continue
 		default:
-			log.Warnf("Unsupported GoBGP route table type: %s", tableTypeName)
+			level.Warn(n.logger).Log(
+				"msg", "Unsupported GoBGP route table type",
+				"table_type", tableTypeName,
+			)
 			continue
 		}
 
@@ -112,17 +116,31 @@ func (n *RouterNode) GetRibCounters() {
 			})
 
 			if err != nil {
-				log.Errorf("GoBGP query for route table %s/%s failed: %s", tableTypeName, addressFamilyName, err)
+				level.Error(n.logger).Log(
+					"msg", "failed GoBGP query for route table",
+					"table_type", tableTypeName,
+					"address_family", addressFamilyName,
+					"error", err.Error(),
+				)
 				n.IncrementErrorCounter()
 				continue
 			}
 
 			if serverResponse == nil {
-				log.Warnf("GoBGP route table %s/%s response is empty", tableTypeName, addressFamilyName)
+				level.Warn(n.logger).Log(
+					"msg", "GoBGP route table response is empty",
+					"table_type", tableTypeName,
+					"address_family", addressFamilyName,
+				)
 				continue
 			}
 
-			log.Debugf("GoBGP route table %s/%s: %v", tableTypeName, addressFamilyName, serverResponse)
+			level.Debug(n.logger).Log(
+				"msg", "GoBGP route table response",
+				"table_type", tableTypeName,
+				"address_family", addressFamilyName,
+				"response", serverResponse,
+			)
 
 			n.metrics = append(n.metrics, prometheus.MustNewConstMetric(
 				routerRibTotalDestinationCount,
@@ -155,5 +173,4 @@ func (n *RouterNode) GetRibCounters() {
 
 	}
 
-	return
 }

@@ -15,25 +15,24 @@
 package exporter
 
 import (
+	"crypto/tls"
 	"fmt"
-	gobgpapi "github.com/osrg/gobgp/api"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
-	"golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
-)
 
-type credential struct {
-	Username string
-	Password string
-	Failed   bool
-}
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+	gobgpapi "github.com/osrg/gobgp/v3/api"
+	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+)
 
 // RouterNode is an instance of a GoBGP router.
 type RouterNode struct {
@@ -44,23 +43,20 @@ type RouterNode struct {
 	localAS              uint32
 	resourceTypes        map[string]bool
 	addressFamilies      map[string]bool
-	port                 int
 	result               string
-	module               string
 	timestamp            string
 	pollInterval         int64
-	timeout              int
 	errors               int64
 	errorsLocker         sync.RWMutex
 	nextCollectionTicker int64
 	metrics              []prometheus.Metric
-	lastConnected        int64
 	connected            bool
+	logger               log.Logger
 }
 
 // NewRouterNode creates an instance of RouterNode.
-func NewRouterNode(addr string, timeout int) (*RouterNode, error) {
-	if err := validAddress(addr); err != nil {
+func NewRouterNode(addr string, timeout int, tlsConfig *tls.Config, logger log.Logger) (*RouterNode, error) {
+	if err := validAddress(addr, logger); err != nil {
 		return nil, err
 	}
 	n := &RouterNode{
@@ -69,6 +65,7 @@ func NewRouterNode(addr string, timeout int) (*RouterNode, error) {
 		nextCollectionTicker: 0,
 		errors:               0,
 		address:              addr,
+		logger:               logger,
 	}
 	n.resourceTypes = make(map[string]bool)
 	n.addressFamilies = make(map[string]bool)
@@ -78,7 +75,11 @@ func NewRouterNode(addr string, timeout int) (*RouterNode, error) {
 	n.addressFamilies["EVPN"] = true
 
 	grpcOpts := []grpc.DialOption{grpc.WithBlock()}
-	grpcOpts = append(grpcOpts, grpc.WithInsecure())
+	if tlsConfig == nil {
+		grpcOpts = append(grpcOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		grpcOpts = append(grpcOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
@@ -92,17 +93,19 @@ func NewRouterNode(addr string, timeout int) (*RouterNode, error) {
 	return n, nil
 }
 
-func validAddress(s string) error {
+func validAddress(s string, logger log.Logger) error {
 	if s == "" {
 		return fmt.Errorf("empty address")
 	}
 
 	host, strport, err := net.SplitHostPort(s)
-	if host != "" {
+	if err != nil {
+		return err
+	} else if host != "" {
 		if addr := net.ParseIP(host); addr == nil {
 			return fmt.Errorf("invalid IP address in %s", s)
 		}
-	} else if ! strings.HasPrefix(s, "dns://") {
+	} else if !strings.HasPrefix(s, "dns://") {
 		return fmt.Errorf("invalid address format in %s", s)
 	} else {
 		// "dns://" prefix for hostname is allowed per go grpc documentation
@@ -112,7 +115,12 @@ func validAddress(s string) error {
 		strport = s[idx+1:]
 	}
 
-	log.Debugf("uri: %s, host: %s, port: %s ", s, host, strport)
+	level.Debug(logger).Log(
+		"msg", "validAddress info",
+		"uri", s,
+		"host", host,
+		"port", strport,
+	)
 
 	port, err := strconv.Atoi(strport)
 	if err != nil {
@@ -138,14 +146,22 @@ func (n *RouterNode) IncrementErrorCounter() {
 // Collect implements prometheus.Collector.
 func (n *RouterNode) Collect(ch chan<- prometheus.Metric) {
 	start := time.Now()
-	log.Debugf("Calling GatherMetrics()")
+	level.Debug(n.logger).Log(
+		"msg", "Calling GatherMetrics()",
+	)
 	n.GatherMetrics()
-	log.Debugf("Collect() calls RLock()")
+	level.Debug(n.logger).Log(
+		"msg", "Collect() calls RLock()",
+	)
 	n.RLock()
 	defer n.RUnlock()
-	log.Debugf("Collect() successful RLock()")
+	level.Debug(n.logger).Log(
+		"msg", "Collect() successful RLock()",
+	)
 	if len(n.metrics) == 0 {
-		log.Debugf("Collect() no metrics found")
+		level.Debug(n.logger).Log(
+			"msg", "Collect() no metrics found",
+		)
 		ch <- prometheus.MustNewConstMetric(
 			routerUp,
 			prometheus.GaugeValue,
@@ -168,7 +184,10 @@ func (n *RouterNode) Collect(ch chan<- prometheus.Metric) {
 		)
 		return
 	}
-	log.Debugf("Collect() sends %d metrics to a shared channel", len(n.metrics))
+	level.Debug(n.logger).Log(
+		"msg", "Collect() sends metrics to a shared channel",
+		"metric_count", len(n.metrics),
+	)
 	for _, m := range n.metrics {
 		ch <- m
 	}
@@ -176,8 +195,5 @@ func (n *RouterNode) Collect(ch chan<- prometheus.Metric) {
 
 // IsConnectionError checks whether it is connectivity issue.
 func IsConnectionError(err error) bool {
-	if strings.Contains(err.Error(), "connection") {
-		return true
-	}
-	return false
+	return strings.Contains(err.Error(), "connection")
 }

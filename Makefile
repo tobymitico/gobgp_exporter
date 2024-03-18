@@ -1,4 +1,3 @@
-.PHONY: test clean qtest deploy dist linter dep gobgp-down gobgp tag
 APP_VERSION:=$(shell cat VERSION | head -1)
 GIT_COMMIT:=$(shell git describe --dirty --always)
 GIT_BRANCH:=$(shell git rev-parse --abbrev-ref HEAD -- | head -1)
@@ -32,35 +31,48 @@ all:
 		-X $(PROJECT)/$(PKG_DIR).buildUser=$(BUILD_USER) \
 		-X $(PROJECT)/$(PKG_DIR).buildDate=$(BUILD_DATE)" \
 		./cmd/$(ALIAS)/*.go
-	@echo "Done!"
+	@echo "DEBUG: completed $@"
 
+.PHONY: linter
 linter:
-	@#go get -u golang.org/x/lint/golint
-	@golint ./$(PKG_DIR)/*.go
-	@echo "PASS: golint"
+	@echo "Running lint checks"
+	@golint ./...
+	@echo "DEBUG: completed $@"
 
-test: linter all
+.PHONY: covdir
+covdir:
+	@echo "Creating .coverage/ directory"
+	@mkdir -p .coverage
+	@echo "DEBUG: completed $@"
+
+.PHONY: test
+test: covdir linter
 	@./bin/$(BINARY) -metrics
-	@go test -v ./$(PKG_DIR)/*.go
-	@echo "PASS: core tests"
-	@echo "OK: all tests passed!"
+	@go test $(VERBOSE) -coverprofile=.coverage/coverage.out ./...
+	@echo "DEBUG: completed $@"
 
+.PHONY: clean
 clean:
 	@rm -rf bin/
 	@rm -rf dist/
-	@echo "OK: clean up completed"
+	@echo "DEBUG: completed $@"
 
+.PHONY: deploy
 deploy:
 	@sudo rm -rf /usr/bin/$(BINARY)
 	@sudo cp ./bin/$(BINARY) /usr/bin/$(BINARY)
+	@echo "DEBUG: completed $@"
 
+.PHONY: qtest
 qtest:
 	@./bin/$(BINARY) -version
 	@./bin/$(BINARY) \
 		-web.listen-address 0.0.0.0:$(PKG_PORT) \
 		-log.level debug \
 		-gobgp.poll-interval 5
+	@echo "DEBUG: completed $@"
 
+.PHONY: dist
 dist: all
 	@mkdir -p ./dist
 	@rm -rf ./dist/*
@@ -72,13 +84,16 @@ dist: all
 	@cp assets/systemd/uninstall.sh ./dist/$(BINARY)-$(APP_VERSION).linux-amd64/uninstall.sh
 	@chmod +x ./dist/$(BINARY)-$(APP_VERSION).linux-amd64/*.sh
 	@cd ./dist/ && tar -cvzf ./$(BINARY)-$(APP_VERSION).linux-amd64.tar.gz ./$(BINARY)-$(APP_VERSION).linux-amd64
+	@echo "DEBUG: completed $@"
 
+.PHONY: dep
 dep:
 	@echo "Making dependencies check ..."
-	@golint || go get -u golang.org/x/lint/golint
-	@versioned || go get -u github.com/greenpau/versioned/cmd/versioned
-	@echo "$@: complete"
+	@versioned || go install github.com/greenpau/versioned/cmd/versioned@v1.0.28
+	@golint || go install golang.org/x/lint/golint@latest
+	@echo "DEBUG: completed $@"
 
+.PHONY: gobgp
 gobgp:
 	@sudo systemctl stop gobgpd
 	@sudo systemctl start gobgpd
@@ -88,10 +103,14 @@ gobgp:
 	@sudo gobgp global rib add -a ipv4 10.10.20.0/24 origin igp
 	@sudo gobgp global rib add -a ipv4 10.10.30.0/24 origin igp
 	@sudo gobgp global rib
+	@echo "DEBUG: completed $@"
 
+.PHONY: gobgp-down
 gobgp-down:
 	@sudo systemctl stop gobgpd
+	@echo "DEBUG: completed $@"
 
+.PHONY: release
 release:
 	@echo "Making release"
 	@go mod tidy
@@ -105,3 +124,4 @@ release:
 	@git tag -a v`cat VERSION | head -1` -m "v`cat VERSION | head -1`"
 	@git push
 	@git push --tags
+	@echo "DEBUG: completed $@"
