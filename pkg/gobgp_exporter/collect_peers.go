@@ -16,6 +16,8 @@ package exporter
 
 import (
 	"io"
+	"strconv"
+	"strings"
 
 	"github.com/go-kit/log/level"
 	gobgpapi "github.com/osrg/gobgp/v3/api"
@@ -70,7 +72,50 @@ func (n *RouterNode) GetPeers() {
 	for _, p := range peers {
 		peerState := p.GetState()
 		peerRouterID := peerState.GetNeighborAddress()
+		peerAfi := p.GetAfiSafis()
+		peerConf := p.GetConf()
+		peerDescription := peerConf.GetDescription()
+		peerApplyPolicy := p.GetApplyPolicy()
 
+		// Peer Prefix metrics
+		for _, a := range peerAfi {
+			peerAFIState := a.GetState()
+			peerFamily := peerAFIState.GetFamily()
+			peerAFI := peerFamily.GetAfi()
+			n.metrics = append(n.metrics, prometheus.MustNewConstMetric(
+				bgpPeerAfiSafiStateReceived,
+				prometheus.GaugeValue,
+				float64(peerAFIState.GetReceived()),
+				peerRouterID,
+				strings.ToLower(peerAFI.String()),
+			))
+			n.metrics = append(n.metrics, prometheus.MustNewConstMetric(
+				bgpPeerAfiSafiStateAccepted,
+				prometheus.GaugeValue,
+				float64(peerAFIState.GetAccepted()),
+				peerRouterID,
+				strings.ToLower(peerAFI.String()),
+			))
+			n.metrics = append(n.metrics, prometheus.MustNewConstMetric(
+				bgpPeerAfiSafiStateAdvertised,
+				prometheus.GaugeValue,
+				float64(peerAFIState.GetAdvertised()),
+				peerRouterID,
+				strings.ToLower(peerAFI.String()),
+			))
+		}
+
+		//Peer info metric
+		n.metrics = append(n.metrics, prometheus.MustNewConstMetric(
+			bgpPeerInfo,
+			prometheus.GaugeValue,
+			1,
+			peerRouterID,
+			peerDescription,
+			strconv.FormatUint(uint64(peerState.GetPeerAsn()), 10),
+			strings.ToLower(peerApplyPolicy.GetImportPolicy().String()),
+			strings.ToLower(peerApplyPolicy.GetExportPolicy().String()),
+		))
 		// Peer Up/Down
 		if peerState.GetRouterId() != "" {
 			n.metrics = append(n.metrics, prometheus.MustNewConstMetric(
@@ -309,6 +354,5 @@ func (n *RouterNode) GetPeers() {
 			float64(peerState.GetType()),
 			peerRouterID,
 		))
-
 	}
 }
