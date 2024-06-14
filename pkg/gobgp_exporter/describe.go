@@ -58,4 +58,7 @@ func (n *RouterNode) Describe(ch chan<- *prometheus.Desc) {
 	ch <- bgpPeerRemovePrivateAsFlag
 	ch <- bgpPeerPasswodSetFlag
 	ch <- bgpPeerType
+	ch <- bgpPeerAfiSafiStateAccepted
+	ch <- bgpPeerAfiSafiStateAdvertised
+	ch <- bgpPeerAfiSafiStateReceived
 }
